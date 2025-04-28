@@ -40,7 +40,6 @@ Some of the code is based on the original DLG paper [find here the repository ht
 1. Clone the repository:
    ```bash
    git clone https://github.com/margheritabonan/bachelor-project.git
-   cd bachelor-project
     ```
 
 
