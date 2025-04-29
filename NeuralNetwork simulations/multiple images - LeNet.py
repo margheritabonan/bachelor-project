@@ -76,7 +76,7 @@ dy_dx = torch.autograd.grad(y, net.parameters())
 
 original_dy_dx = list((_.detach().clone() for _ in dy_dx))
 
-method = "DLG"
+method = "DLG" # idk why it does not work with iDLG here ... the loss is not decreasing, but the labels are predicted correctly
 # method = "iDLG"
 
 # dummy data and label
