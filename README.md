@@ -24,10 +24,24 @@ Some of the code is based on the original DLG paper [find here the repository ht
      - Uses multiple images as input to the linear regression model.
      - Explores the limitations of the DLG method in reconstructing inputs when gradients are derived from multiple images.
 
+### 4. **multiple images - LeNet**
+   - **Description**: This script implements a neural network model (LeNet) to explore the gradient leakage phenomenon with multiple images.
+   - **Key Features**:
+     - Uses a LeNet architecture for image classification.
+     - Explores the potential for gradient leakage in a more complex model compared to linear regression.
+     - The images can be chosen from either the CIFAR-100 dataset or the MINIST dataset. 
+
 ## Repository Structure
+
+
+📂 **Linear Regression GL Simulations**
 - **`DLG on (single image) linear regression.py`**: Code for the first experiment with a single image.
 - **`alpha reconstruction on LR.py`**: Code for the second experiment using the alpha reconstruction method.
 - **`DLG on linear regression (multiple).py`**: Code for the third experiment with multiple images.
+
+📂 **NeuralNetwork simulations**
+- **`multiple images - LeNet.py`**: Code for a neural network simulation with multiple images.
+
 
 ## Requirements
 - Python 3.x
