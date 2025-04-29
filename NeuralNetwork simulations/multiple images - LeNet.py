@@ -76,12 +76,22 @@ dy_dx = torch.autograd.grad(y, net.parameters())
 
 original_dy_dx = list((_.detach().clone() for _ in dy_dx))
 
-# dummy data and labels
+method = "DLG"
+# method = "iDLG"
+
+# dummy data and label
 dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)  # Shape: [n, 1, 28, 28]
 dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)  # Shape: [n, 10]
 
 
-optimizer = torch.optim.LBFGS([dummy_data, dummy_labels])
+if method == 'DLG':
+    optimizer = torch.optim.LBFGS([dummy_data, dummy_labels])
+elif method == 'iDLG':
+    optimizer = torch.optim.LBFGS([dummy_data, ])
+    # predict the ground-truth label
+    label_pred = torch.argmin(torch.sum(original_dy_dx[-2], dim=-1), dim=-1).detach().reshape((1,)).requires_grad_(False)
+
+
 
 history = {"initial": dummy_data.clone().detach().cpu(), "final": None}
 current_loss = 0
@@ -94,12 +104,23 @@ for iters in range(n_iter):
         print("Restarting...")
         dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
         dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)
-        optimizer = torch.optim.LBFGS([dummy_data, dummy_labels])
+        if method == 'DLG':
+            optimizer = torch.optim.LBFGS([dummy_data, dummy_labels])
+        elif method == 'iDLG':
+            optimizer = torch.optim.LBFGS([dummy_data, ])
+            label_pred = torch.argmin(torch.sum(original_dy_dx[-2], dim=-1), dim=-1).detach().reshape((1,)).requires_grad_(False)
+
 
     def closure():
         optimizer.zero_grad()
         dummy_pred = net(dummy_data)
-        dummy_loss = criterion(dummy_pred, F.softmax(dummy_labels, dim=-1))
+
+        if method == 'DLG':
+            dummy_loss = criterion(dummy_pred, F.softmax(dummy_labels, dim=-1))
+
+        elif method == 'iDLG':
+            dummy_loss = criterion(dummy_pred, label_pred)
+
         dummy_dy_dx = torch.autograd.grad(dummy_loss, net.parameters(), create_graph=True)
 
         loss = 0
