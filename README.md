@@ -1,7 +1,7 @@
 # Gradient Leakage Simulations
 
 This repository contains adaptations of the Deep Leakage from Gradients (DLG) method to reproduce the simulations mentioned in my bachelor thesis. The experiments explore the feasibility of reconstructing input images from gradients in different scenarios using different models.
-Some of the code is based on the original DLG paper [find here the repository https://github.com/mit-han-lab/dlg], and it has been modified to work with linear regression instead of deep learning models.
+The code is based on the original DLG paper [find here the repository https://github.com/mit-han-lab/dlg], and it has been modified to work with different underlying models.
 
 ## Files and Experiments
 
