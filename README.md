@@ -43,14 +43,14 @@ The code is based on the original DLG paper [find here the repository https://gi
 - **`multiple images - LeNet.py`**: Code for a neural network simulation with multiple images.
 
 
-## Requirements
+## Requirements (temporary)
 - Python 3.x
 - PyTorch
 - torchvision
 - matplotlib
 - PIL (Pillow)
 
-## How to Run
+## How to Run (temporary)
 1. Clone the repository:
    ```bash
    git clone https://github.com/margheritabonan/bachelor-project.git
