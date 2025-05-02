@@ -47,7 +47,7 @@ restart_interval = 100
 
 # initialize dummy input (number_of_images images)
 dummy_data = torch.randn_like(gt_data, requires_grad=True).to(device)
-dummy_data = (gt_data + 0.2 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
+dummy_data = (gt_data + 0.1 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
 
 #  original gradients
 pred = model(gt_data)  # Forward pass
@@ -102,7 +102,7 @@ for iters in range(3000):
         print("Restarting...")
         # Re-initialize dummy data
         dummy_data.data = torch.randn_like(gt_data).to(device)
-        dummy_data = (gt_data + 0.2 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
+        dummy_data = (gt_data + 0.1 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
         optimizer = torch.optim.LBFGS([dummy_data])
     
     # Save dummy data for visualization every tot iterations
