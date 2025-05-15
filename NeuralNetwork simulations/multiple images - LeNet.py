@@ -31,7 +31,7 @@ print(torch.__version__, torchvision.__version__)
 
 # argument parser
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
-parser.add_argument('--indices', type=int, nargs='+', default=[0,1,2],  # Default: first 3 images
+parser.add_argument('--indices', type=int, nargs='+', default=[0,1,2],  # insert the indeces of the images you want
                     help='The indices for leaking images on MNIST.')
 args = parser.parse_args()
 
@@ -67,7 +67,8 @@ restart_interval = 20
 torch.manual_seed(12345)
 
 net.apply(weights_init)
-criterion = cross_entropy_for_onehot
+criterion = nn.CrossEntropyLoss().to(device) # the one used in iDLG
+#criterion = cross_entropy_for_onehot
 
 #  original gradients
 pred = net(gt_data)
@@ -76,8 +77,8 @@ dy_dx = torch.autograd.grad(y, net.parameters())
 
 original_dy_dx = list((_.detach().clone() for _ in dy_dx))
 
-method = "DLG" # idk why it does not work with iDLG here ... the loss is not decreasing, but the labels are predicted correctly
-# method = "iDLG"
+method = "DLG" # "DLG" or "iDLG"
+# note: iDLG can not be used for more than 1 image
 
 # dummy data and label
 dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)  # Shape: [n, 1, 28, 28]
@@ -89,13 +90,15 @@ if method == 'DLG':
 elif method == 'iDLG':
     optimizer = torch.optim.LBFGS([dummy_data, ])
     # predict the ground-truth label
-    label_pred = torch.argmin(torch.sum(original_dy_dx[-2], dim=-1), dim=-1).detach().reshape((1,)).requires_grad_(False)
+    label_pred = torch.argmin(torch.sum(original_dy_dx[-2], dim=-1), dim=-1).detach().reshape((n,)).requires_grad_(False)
+    print("Predicted label is:", label_pred.item())
+
 
 
 
 history = {"initial": dummy_data.clone().detach().cpu(), "final": None}
 current_loss = 0
-n_iter = 500
+n_iter = 300
 loss_array = np.zeros(n_iter)
 for iters in range(n_iter):
 
@@ -141,25 +144,29 @@ for iters in range(n_iter):
 
 # plot the results
 plt.figure(figsize=(8, 3 * n))  # adjust height based on the number of images
-
+plt.title(f'{method} on {dst.__class__.__name__}, {n} images')
+# add vertical space
+plt.subplots_adjust(hspace=0.5)
+#remove axis
+plt.axis('off')
 
 for i in range(n):
     # original image
     plt.subplot(n, 3, i * 3 + 1)
     plt.imshow(tt(gt_data[i].cpu()))
-    plt.title(f"Original {i + 1}")
+    plt.title(f"Original image")
     plt.axis('off')
 
     # initial dummy data
     plt.subplot(n, 3, i * 3 + 2)
     plt.imshow(tt(history["initial"][i]))
-    plt.title(f"Initial Dummy {i + 1}")
+    plt.title(f"Initial dummy image")
     plt.axis('off')
 
     # final reconstructed image
     plt.subplot(n, 3, i * 3 + 3)
     plt.imshow(tt(history["final"][i]))
-    plt.title(f"Reconstructed {i + 1}")
+    plt.title(f"Reconstructed image")
     plt.axis('off')
 
 plt.tight_layout()
