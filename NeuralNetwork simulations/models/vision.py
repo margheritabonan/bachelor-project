@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
 
+# code adapted from https://github.com/mit-han-lab/dlg
 
 def weights_init(m):
     if hasattr(m, "weight"):

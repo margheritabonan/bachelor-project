@@ -105,7 +105,6 @@ for iters in range(3000):
         dummy_data = (gt_data + 0.1 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
         optimizer = torch.optim.LBFGS([dummy_data])
     
-    # Save dummy data for visualization every tot iterations
     if iters %  100 == 0:
         history.append(dummy_data.detach().cpu().clone())
 
@@ -114,10 +113,8 @@ for iters in range(3000):
         print("Converged")
         break
 
-    # Compute pixel_loss outside the closure
     pixel_loss = F.mse_loss(dummy_data, gt_data).item()
 
-    # Break loop if pixel-wise loss is small
     if pixel_loss < 0.0001:
         print("Converged based on pixel similarity")
         break
@@ -125,37 +122,30 @@ for iters in range(3000):
 # turn the loss list to array
 loss_list = np.array(loss_list)
 
-# Plot the results
 plt.figure(figsize=(12, 8))
 
-#  Original images
-for i in range(number_of_images):  # Plot each original image
+#  original images
+for i in range(number_of_images):  
     plt.subplot(3, number_of_images, i + 1)
     plt.imshow(tt(gt_data[i].cpu()))
     plt.title(f"Original {i + 1}")
     plt.axis('off')
 
-# Add a subtitle for the first row
 plt.text(0.5, 0.95, "Original Images", ha='center', va='top', fontsize=10, transform=plt.gcf().transFigure)
 
-
-# Row 2: Reconstructed images
-for i in range(number_of_images):  # Plot each reconstructed image
+# reconstructed images
+for i in range(number_of_images):  
     plt.subplot(3, number_of_images, i + number_of_images + 1)
     plt.imshow(tt(history[-1][i]))
     plt.title(f"Reconstructed {i + 1}")
     plt.axis('off')
 
-# Adjust spacing between rows
-plt.subplots_adjust(hspace=0.5)  # Increase vertical spacing between rows
+plt.subplots_adjust(hspace=0.5) 
 
 
-# Add a subtitle for the second row
 plt.text(0.5, 0.6, f"Reconstructed Images, loss={loss_list[-1]:.7f}", ha='center', va='bottom', fontsize=10, transform=plt.gcf().transFigure)
 
-
-
-# Row 3: Dummy initialization
+# dummy initialization
 plt.subplot(3, number_of_images, 5)
 plt.imshow(tt(dummy_data[0].cpu()))
 plt.title(f"Dummy initialization 1")
@@ -166,10 +156,8 @@ plt.imshow(tt(dummy_data[1].cpu()))
 plt.title(f"Dummy initialization 2")
 plt.axis('off')
 
-# Adjust spacing between rows
 plt.subplots_adjust(hspace=0.5)  # Increase vertical spacing between rows
 
-# Add a subtitle for the third row
 plt.text(0.5, 0.3, f"Dummy Initialization, loss={loss_list[0]:.7f}", ha='center', va='bottom', fontsize=10, transform=plt.gcf().transFigure)
 
 plt.tight_layout()

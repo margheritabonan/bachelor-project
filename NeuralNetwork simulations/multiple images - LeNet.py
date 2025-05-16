@@ -15,6 +15,8 @@ from torchvision import models, datasets, transforms
 # init the model
 from models.vision import LeNet, weights_init
 
+# code adapted from https://github.com/mit-han-lab/dlg
+
 # (from utils)
 def label_to_onehot(target, num_classes=100):
     target = torch.unsqueeze(target, 1)
@@ -103,7 +105,7 @@ loss_array = np.zeros(n_iter)
 for iters in range(n_iter):
 
     if current_loss >= 5 and (iters % restart_interval == 0): # or ((loss_array[iters - 10] - current_loss) < 1e-16 and iters > 10 and iters % restart_interval == 0):
-        # Re-initialize dummy data and labels
+        # re-initialize dummy data and labels
         print("Restarting...")
         dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
         dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)
@@ -145,9 +147,7 @@ for iters in range(n_iter):
 # plot the results
 plt.figure(figsize=(8, 3 * n))  # adjust height based on the number of images
 plt.title(f'{method} on {dst.__class__.__name__}, {n} images \n')
-# add vertical space
 plt.subplots_adjust(hspace=1)
-#remove axis
 plt.axis('off')
 
 for i in range(n):
