@@ -31,7 +31,7 @@ print(torch.__version__, torchvision.__version__)
 
 # argument parser
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
-parser.add_argument('--indices', type=int, nargs='+', default=[0,1,2],  # insert the indeces of the images you want
+parser.add_argument('--indices', type=int, nargs='+', default=[0,1,2, 3, 4],  # insert the indeces of the images you want
                     help='The indices for leaking images on MNIST.')
 args = parser.parse_args()
 
@@ -81,8 +81,8 @@ method = "DLG" # "DLG" or "iDLG"
 # note: iDLG can not be used for more than 1 image
 
 # dummy data and label
-dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)  # Shape: [n, 1, 28, 28]
-dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)  # Shape: [n, 10]
+dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)  # shape [n, 1, 28, 28]
+dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)  # shape is [n, 10]
 
 
 if method == 'DLG':
@@ -144,9 +144,9 @@ for iters in range(n_iter):
 
 # plot the results
 plt.figure(figsize=(8, 3 * n))  # adjust height based on the number of images
-plt.title(f'{method} on {dst.__class__.__name__}, {n} images')
+plt.title(f'{method} on {dst.__class__.__name__}, {n} images \n')
 # add vertical space
-plt.subplots_adjust(hspace=0.5)
+plt.subplots_adjust(hspace=1)
 #remove axis
 plt.axis('off')
 
@@ -154,19 +154,22 @@ for i in range(n):
     # original image
     plt.subplot(n, 3, i * 3 + 1)
     plt.imshow(tt(gt_data[i].cpu()))
-    plt.title(f"Original image")
+    if i == 0:
+        plt.title(f"Original")
     plt.axis('off')
 
     # initial dummy data
     plt.subplot(n, 3, i * 3 + 2)
     plt.imshow(tt(history["initial"][i]))
-    plt.title(f"Initial dummy image")
+    if i == 0:
+        plt.title(f"Initial dummy image")
     plt.axis('off')
 
     # final reconstructed image
     plt.subplot(n, 3, i * 3 + 3)
     plt.imshow(tt(history["final"][i]))
-    plt.title(f"Reconstructed image")
+    if i == 0:
+        plt.title(f"Reconstructed image")
     plt.axis('off')
 
 plt.tight_layout()
