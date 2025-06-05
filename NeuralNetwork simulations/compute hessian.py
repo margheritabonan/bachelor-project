@@ -22,7 +22,7 @@ torch.manual_seed(1234)
 # setting up model & data
 
 # (from utils)
-def label_to_onehot(target, num_classes=10): # num classes has to be adapted for the different models/datasets. here cifar has 10
+def label_to_onehot(target, num_classes=100): # num classes has to be adapted for the different models/datasets. here cifar has 10
     target = torch.unsqueeze(target, 1)
     onehot_target = torch.zeros(target.size(0), num_classes, device=target.device)
     onehot_target.scatter_(1, target, 1)
@@ -44,11 +44,15 @@ if torch.cuda.is_available():
 print("Running on %s" % device)
 
 #  MNIST dataset
-dst = datasets.MNIST("~/.torch", download=True)
-channels = 1
+#dst = datasets.MNIST("~/.torch", download=True)
+#channels = 1
+
+# CIFAR100 dataset
+dst = datasets.CIFAR100("~/.torch", download=True)
+channels = 3
 
 # network
-net = LeNet(in_channels=1).to(device) 
+net = LeNet(channels).to(device) 
 
 # here ground truth data is loaded
 tp = transforms.ToTensor()
@@ -119,9 +123,8 @@ def min_eigenvalue_dummy_data(dummy_data, net, dummy_labels, criterion, original
     """
     # dd (dummy data) is the variable we optimize over
     dd = dummy_data.clone().detach().requires_grad_(True)
-    D = dd.numel()
+    D = dd.numel() # numel gives the number of elements in the tensor
 
-    # Initialize the vector v
     v = torch.randn(D, device=device)
     v /= v.norm()
     mu_old = None
