@@ -63,7 +63,7 @@ optimizer = torch.optim.LBFGS([dummy_data])
 restart_interval = 10 # not used yet
 history = []
 
-for iters in range(60):
+for iters in range(20):
 
     def closure():
 
@@ -90,12 +90,13 @@ for iters in range(60):
 
 
 plt.figure(figsize=(12, 8))
-for i in range(29):
-    plt.subplot(3, 10, i + 1)
+for i in range(9):
+    print(f"Iter {i}")
+    plt.subplot(2, 5, i + 1)
     plt.imshow(history[i])
     plt.title(f"iter= {i*2}")
     plt.axis('off')
-plt.subplot(3,10, 30)
+plt.subplot(2,5, 10)
 plt.imshow(tt(gt_data[0].cpu()))
 plt.title("Ground Truth")
 plt.axis('off')
