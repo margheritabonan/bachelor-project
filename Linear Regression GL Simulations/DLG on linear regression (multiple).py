@@ -46,18 +46,14 @@ criterion = nn.MSELoss()
 restart_interval = 100
 
 # initialize dummy input (number_of_images images)
-dummy_data = torch.randn_like(gt_data, requires_grad=True).to(device)
+#dummy_data = torch.randn_like(gt_data, requires_grad=True).to(device)
 dummy_data = (gt_data + 0.1 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
 
-#  original gradients
 pred = model(gt_data)  # Forward pass
 loss = criterion(pred.squeeze(), gt_target)  
 dy_dx = torch.autograd.grad(loss, model.parameters())
-
 original_grads = [g.detach().clone() for g in dy_dx]
-
-
-dummy_target = torch.randn_like(gt_target).to(device).requires_grad_(True)  # Dummy target for dummy data
+dummy_target = torch.randn_like(gt_target).to(device).requires_grad_(True)  # Dummy target value (y) 
 # optimizer
 optimizer = torch.optim.LBFGS([dummy_data, dummy_target])
 history = []
@@ -70,7 +66,6 @@ for iters in range(3000):
     def closure():
         optimizer.zero_grad()
 
-
         pred = model(dummy_data)
         loss = criterion(pred.squeeze(), gt_target)  # Match target shape
 
@@ -79,16 +74,11 @@ for iters in range(3000):
 
         # gradient matching loss
         grad_loss_mse = sum(((gx - gy) ** 2).mean() for gx, gy in zip(dummy_grads, original_grads))
-        grad_loss_cosine = sum(1 - F.cosine_similarity(gx.flatten(), gy.flatten(), dim=0) for gx, gy in zip(dummy_grads, original_grads))
-        grad_loss = grad_loss_mse #+ 0.1 * grad_loss_cosine       
+        grad_loss = grad_loss_mse       
 
-        pixel_loss = F.mse_loss(dummy_data, gt_data)
-
-        # regularization loss
-        regularization_loss = torch.norm(dummy_data, p=2)
 
         # total loss
-        total_loss = grad_loss  #+ 0.01 * pixel_loss  #+ 0.000001 * regularization_loss
+        total_loss = grad_loss  # if wanted, add regularization terms here
         total_loss.backward()
         return total_loss
 
@@ -98,12 +88,12 @@ for iters in range(3000):
     loss_list.append(current_loss)
 
     # restart if stagnating
-    if (current_loss >= 10 and (iters % restart_interval == 0)) or math.isnan(current_loss) or (iters % 300 == 0):
+    if (current_loss >= 1 and (iters % restart_interval == 0)) or math.isnan(current_loss) or (iters % 300 == 0):
         print("Restarting...")
         # Re-initialize dummy data
         dummy_data.data = torch.randn_like(gt_data).to(device)
         dummy_data = (gt_data + 0.1 * torch.randn_like(gt_data)).to(device).requires_grad_(True)
-        optimizer = torch.optim.LBFGS([dummy_data])
+        optimizer = torch.optim.LBFGS([dummy_data, dummy_target])
     
     if iters %  100 == 0:
         history.append(dummy_data.detach().cpu().clone())
@@ -121,46 +111,45 @@ for iters in range(3000):
 
 # turn the loss list to array
 loss_list = np.array(loss_list)
+ 
+print("Reconstructed target values:")
+for i in range(number_of_images):
+    print(dummy_target[i].detach().cpu().item())
 
-plt.figure(figsize=(12, 8))
+print("Original target values:")
+for i in range(number_of_images):
+    print(gt_target[i].detach().cpu().item())
 
-#  original images
-for i in range(number_of_images):  
-    plt.subplot(3, number_of_images, i + 1)
+plt.figure(figsize=(12, 6))
+plt.title("Original Images", fontsize=16)
+plt.axis('off')
+plt.subplot(1, 2, 1)
+for i in range(number_of_images):
+    plt.subplot(1, number_of_images, i + 1)
+    plt.axis('off')
     plt.imshow(tt(gt_data[i].cpu()))
-    plt.title(f"Original {i + 1}")
     plt.axis('off')
-
-plt.text(0.5, 0.95, "Original Images", ha='center', va='top', fontsize=10, transform=plt.gcf().transFigure)
-
-# reconstructed images
-for i in range(number_of_images):  
-    plt.subplot(3, number_of_images, i + number_of_images + 1)
-    plt.imshow(tt(history[-1][i]))
-    plt.title(f"Reconstructed {i + 1}")
-    plt.axis('off')
-
-plt.subplots_adjust(hspace=0.5) 
-
-
-plt.text(0.5, 0.6, f"Reconstructed Images, loss={loss_list[-1]:.7f}", ha='center', va='bottom', fontsize=10, transform=plt.gcf().transFigure)
-
-# dummy initialization
-plt.subplot(3, number_of_images, 5)
-plt.imshow(tt(dummy_data[0].cpu()))
-plt.title(f"Dummy initialization 1")
-plt.axis('off')
-
-plt.subplot(3, number_of_images, 6)
-plt.imshow(tt(dummy_data[1].cpu()))
-plt.title(f"Dummy initialization 2")
-plt.axis('off')
-
-plt.subplots_adjust(hspace=0.5)  # Increase vertical spacing between rows
-
-plt.text(0.5, 0.3, f"Dummy Initialization, loss={loss_list[0]:.7f}", ha='center', va='bottom', fontsize=10, transform=plt.gcf().transFigure)
-
-plt.tight_layout()
 plt.show()
+
+plt.figure(figsize=(12, 6))
+plt.title(f"Reconstructed images, loss: {loss_list[-1]:.5e}. ", fontsize=16)
+plt.axis('off')
+plt.subplot(1, 2, 1)
+for i in range(number_of_images):
+    plt.subplot(1, number_of_images, i + 1)
+    plt.imshow(tt(history[-1][i]))
+    plt.axis('off')
+plt.show()
+
+plt.figure(figsize=(12, 6))
+plt.title(f"Dummy initialization, loss: {loss_list[0]:.5e}", fontsize=16)
+plt.axis('off')
+plt.subplot(1, 2, 1)
+for i in range(number_of_images):
+    plt.subplot(1, number_of_images, i + 1)
+    plt.imshow(tt(dummy_data[i].cpu()))
+    plt.axis('off')
+plt.show()
+
 
 
