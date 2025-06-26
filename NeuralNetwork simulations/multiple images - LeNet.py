@@ -33,7 +33,7 @@ print(torch.__version__, torchvision.__version__)
 
 # argument parser
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
-parser.add_argument('--indices', type=int, nargs='+', default=[0,1,2, 3, 4],  # insert the indeces of the images you want
+parser.add_argument('--indices', type=int, nargs='+', default=[50],  # insert the indeces of the images you want
                     help='The indices for leaking images on MNIST.')
 args = parser.parse_args()
 
@@ -43,12 +43,12 @@ if torch.cuda.is_available():
 print("Running on %s" % device)
 
 #  MNIST dataset
-dst = datasets.MNIST("~/.torch", download=True)
-channels = 1
+#dst = datasets.MNIST("~/.torch", download=True)
+#channels = 1
 
 # CIFAR100 dataset
-#dst = datasets.CIFAR100("~/.torch", download=True)
-#channels = 3
+dst = datasets.CIFAR100("~/.torch", download=True)
+channels = 3
 tp = transforms.ToTensor()
 tt = transforms.ToPILImage()
 
@@ -64,9 +64,10 @@ print("Class labels are:", [dst.classes[dst[i][1]] for i in img_indices])
 
 
 net = LeNet(in_channels=channels).to(device)
+print(net)
 
 restart_interval = 20
-torch.manual_seed(12345)
+torch.manual_seed(123)
 
 net.apply(weights_init)
 criterion = nn.CrossEntropyLoss().to(device) # the one used in iDLG
@@ -82,10 +83,16 @@ original_dy_dx = list((_.detach().clone() for _ in dy_dx))
 method = "DLG" # "DLG" or "iDLG"
 # note: iDLG can not be used for more than 1 image
 
+
+history_complete = [] 
+history_labels = []
+
 # dummy data and label
 dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)  # shape [n, 1, 28, 28]
 dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)  # shape is [n, 10]
+history_labels.append(dummy_labels.clone().detach().cpu())
 
+history = {"initial": dummy_data.clone().detach().cpu(), "final": None}
 
 if method == 'DLG':
     optimizer = torch.optim.LBFGS([dummy_data, dummy_labels])
@@ -97,8 +104,6 @@ elif method == 'iDLG':
 
 
 
-
-history = {"initial": dummy_data.clone().detach().cpu(), "final": None}
 current_loss = 0
 n_iter = 300
 loss_array = np.zeros(n_iter)
@@ -138,6 +143,8 @@ for iters in range(n_iter):
     optimizer.step(closure)
     current_loss = closure().item()
     loss_array[iters] = current_loss
+    history_complete.append(dummy_data.detach().cpu().clone())
+    history_labels.append(dummy_labels.detach().cpu().clone())
 
     print(iters, "%.10f" % current_loss)
 
@@ -174,3 +181,34 @@ for i in range(n):
 
 plt.tight_layout()
 plt.show()
+
+#history_complete = np.array(history_complete)
+
+if n == 1:
+
+    plt.figure(figsize=(10, 5))
+    plt.title(f'{method} on {dst.__class__.__name__}')
+    plt.axis('off')
+    # plot iterations images 0, 10, 20, ..., 90
+    for i in range(9):
+        plt.subplot(2, 5, i+1)
+        plt.imshow(tt(history_complete[i * 30][0]))
+        plt.title(f"Iter {i * 30}")
+        # below the image, write
+        # if dataset is MNIST, write the label
+        if dst.__class__.__name__ == 'MNIST':
+            plt.text(x = 0.5 ,y = -0.1, s= f"label: {history_labels[i * 30][0].argmax().item()}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+        elif dst.__class__.__name__ == 'CIFAR100':
+            label_idx = history_labels[i * 30][0].argmax().item()
+            label_str = dst.classes[label_idx]
+            plt.text(x = 0.5 ,y = -0.1, s= f"label: {label_str}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+        plt.axis('off')
+    plt.subplot(2, 5, 10)
+    plt.imshow(tt(gt_data[0].cpu()))
+    plt.title("Ground Truth")
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+
