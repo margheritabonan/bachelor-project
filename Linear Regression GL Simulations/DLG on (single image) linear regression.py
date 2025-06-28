@@ -62,6 +62,7 @@ optimizer = torch.optim.LBFGS([dummy_data])
 
 restart_interval = 10 # not used yet
 history = []
+losses = []
 
 for iters in range(20):
 
@@ -81,6 +82,7 @@ for iters in range(20):
 
     optimizer.step(closure)
     current_loss = closure().item()
+    losses.append(current_loss)
     #optimizer.step()
     print(f"Iter {iters}: loss = {current_loss:.6f}")
     #print(f"Iter {iters}: loss = {grad_loss:.6f}")
@@ -89,12 +91,13 @@ for iters in range(20):
         history.append(tt(dummy_data[0].detach().cpu()))
 
 
+
 plt.figure(figsize=(12, 8))
 for i in range(9):
     print(f"Iter {i}")
     plt.subplot(2, 5, i + 1)
     plt.imshow(history[i])
-    plt.title(f"iter= {i*2}")
+    plt.title(f"i={i*2}, loss={losses[i*2]:.2e}", fontsize=12)
     plt.axis('off')
 plt.subplot(2,5, 10)
 plt.imshow(tt(gt_data[0].cpu()))
