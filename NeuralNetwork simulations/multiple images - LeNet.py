@@ -33,7 +33,7 @@ print(torch.__version__, torchvision.__version__)
 
 # argument parser
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
-parser.add_argument('--indices', type=int, nargs='+', default=[50],  # insert the indeces of the images you want
+parser.add_argument('--indices', type=int, nargs='+', default=[0,1,2],  # insert the indeces of the images you want
                     help='The indices for leaking images on MNIST.')
 args = parser.parse_args()
 
@@ -43,12 +43,12 @@ if torch.cuda.is_available():
 print("Running on %s" % device)
 
 #  MNIST dataset
-#dst = datasets.MNIST("~/.torch", download=True)
-#channels = 1
+dst = datasets.MNIST("~/.torch", download=True)
+channels = 1
 
 # CIFAR100 dataset
-dst = datasets.CIFAR100("~/.torch", download=True)
-channels = 3
+#dst = datasets.CIFAR100("~/.torch", download=True)
+#channels = 3
 tp = transforms.ToTensor()
 tt = transforms.ToPILImage()
 
@@ -67,7 +67,7 @@ net = LeNet(in_channels=channels).to(device)
 print(net)
 
 restart_interval = 20
-torch.manual_seed(123)
+torch.manual_seed(12345)
 
 net.apply(weights_init)
 criterion = nn.CrossEntropyLoss().to(device) # the one used in iDLG
@@ -100,7 +100,15 @@ elif method == 'iDLG':
     optimizer = torch.optim.LBFGS([dummy_data, ])
     # predict the ground-truth label
     label_pred = torch.argmin(torch.sum(original_dy_dx[-2], dim=-1), dim=-1).detach().reshape((n,)).requires_grad_(False)
-    print("Predicted label is:", label_pred.item())
+
+    #print("Predicted label is:", label_pred.item())
+     
+    #if dst.__class__.__name__ == 'CIFAR100':
+    label_predicted = dst.classes[label_pred.item()]
+    print("Predicted label is:", label_predicted)
+
+    
+    #history_labels.append(label_pred.item())
 
 
 
@@ -153,7 +161,7 @@ for iters in range(n_iter):
 
 # plot the results
 plt.figure(figsize=(8, 3 * n))  # adjust height based on the number of images
-plt.title(f'{method} on {dst.__class__.__name__}, {n} images \n')
+plt.title(f'{method} on {dst.__class__.__name__}, {n} images, max iter: {n_iter} \n')
 plt.subplots_adjust(hspace=1)
 plt.axis('off')
 
@@ -164,6 +172,7 @@ for i in range(n):
     if i == 0:
         plt.title(f"Original")
     plt.axis('off')
+    plt.text(x = 0.5 ,y = -0.2, s= f"true label: {dst.classes[gt_labels[i].item()]} \n", transform=plt.gca().transAxes, ha='center', fontsize=12)
 
     # initial dummy data
     plt.subplot(n, 3, i * 3 + 2)
@@ -171,6 +180,7 @@ for i in range(n):
     if i == 0:
         plt.title(f"Initial dummy image")
     plt.axis('off')
+    plt.text(x = 0.5 ,y = -0.2, s= f"label: {history_labels[0][i].argmax().item()} \n", transform=plt.gca().transAxes, ha='center', fontsize=12)
 
     # final reconstructed image
     plt.subplot(n, 3, i * 3 + 3)
@@ -178,6 +188,7 @@ for i in range(n):
     if i == 0:
         plt.title(f"Reconstructed image")
     plt.axis('off')
+    plt.text(x = 0.5 ,y = -0.2, s= f"label: {history_labels[-1][i].argmax().item()} \n", transform=plt.gca().transAxes, ha='center', fontsize=12)
 
 plt.tight_layout()
 plt.show()
@@ -192,20 +203,28 @@ if n == 1:
     # plot iterations images 0, 10, 20, ..., 90
     for i in range(9):
         plt.subplot(2, 5, i+1)
-        plt.imshow(tt(history_complete[i * 30][0]))
-        plt.title(f"Iter {i * 30}")
+        plt.imshow(tt(history_complete[i * 35][0]))
+        plt.title(f"Iter {i * 35}")
         # below the image, write
         # if dataset is MNIST, write the label
         if dst.__class__.__name__ == 'MNIST':
-            plt.text(x = 0.5 ,y = -0.1, s= f"label: {history_labels[i * 30][0].argmax().item()}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+            if method == 'iDLG':
+                plt.text(x = 0.5 ,y = -0.1, s= f"label: {label_predicted}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+            else:
+                plt.text(x = 0.5 ,y = -0.1, s= f"label: {history_labels[i * 35][0].argmax().item()}", transform=plt.gca().transAxes, ha='center', fontsize=10)
         elif dst.__class__.__name__ == 'CIFAR100':
-            label_idx = history_labels[i * 30][0].argmax().item()
-            label_str = dst.classes[label_idx]
-            plt.text(x = 0.5 ,y = -0.1, s= f"label: {label_str}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+            if method == 'iDLG':
+                plt.text(x = 0.5 ,y = -0.1, s= f"label: {label_predicted}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+            else:
+                label_idx = history_labels[i * 35][0].argmax().item()
+                label_str = dst.classes[label_idx]
+                plt.text(x = 0.5 ,y = -0.1, s= f"label: {label_str}", transform=plt.gca().transAxes, ha='center', fontsize=10)
+                
         plt.axis('off')
     plt.subplot(2, 5, 10)
     plt.imshow(tt(gt_data[0].cpu()))
     plt.title("Ground Truth")
+    plt.text(x = 0.5 ,y = -0.1, s= f"true label: {dst.classes[gt_labels[0].item()]}", transform=plt.gca().transAxes, ha='center', fontsize=10)
     plt.axis('off')
     plt.tight_layout()
     plt.show()
