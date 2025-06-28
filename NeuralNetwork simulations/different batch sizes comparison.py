@@ -2,7 +2,7 @@
 import argparse
 import numpy as np
 from pprint import pprint
-
+from joblib import Parallel, delayed
 from PIL import Image
 import matplotlib.pyplot as plt
 
@@ -17,7 +17,7 @@ from models.vision import LeNet, weights_init
 
 # code adapted from https://github.com/mit-han-lab/dlg
 
-# (from utils)
+# (from utils in the original repository)
 def label_to_onehot(target, num_classes=100):
     target = torch.unsqueeze(target, 1)
     onehot_target = torch.zeros(target.size(0), num_classes, device=target.device)
@@ -28,18 +28,21 @@ def cross_entropy_for_onehot(pred, target):
     return torch.mean(torch.sum(- target * F.log_softmax(pred, dim=-1), 1))
 
 
-print(torch.__version__, torchvision.__version__)
 
-plt.figure(figsize=(10, 10))
-experiments_number = 5  # number of experiments for each batch size
-batch_sizes = [1, 2, 4, 8, 16, 32, 64 ]  
+# settings of the experiment
+torch.manual_seed(200)
+experiments_number = 5 # number of experiments for each batch size
+number_batch_sizes = 6 # batch sizes are going to be 2**i for i in range(number_batch_sizes)
+n_iter = 50
 
-# plot success rate for different batch sizes
-final_losses = [] # array to store final losses for each batch size to be plotted
 
-for batch_size in batch_sizes:
 
-    indices_images = [i for i in range(batch_size)]  # indices of images to leak
+def run_experiment(index_batch_size):
+
+    batch_size = 2**index_batch_size 
+    
+
+    indices_images = [i for i in range(3, batch_size + 3)]  # indices of images to leak
 
     # argument parser
     parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
@@ -50,7 +53,7 @@ for batch_size in batch_sizes:
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda"
-    print("Running on %s" % device)
+
 
     #  MNIST dataset
     dst = datasets.MNIST("~/.torch", download=True)
@@ -70,18 +73,16 @@ for batch_size in batch_sizes:
     gt_onehot_labels = label_to_onehot(gt_labels)  
 
     # print class labels
-    print("Class labels are:", [dst.classes[dst[i][1]] for i in img_indices])
-
+    #print("Class labels are:", [dst.classes[dst[i][1]] for i in img_indices])
 
     net = LeNet(in_channels=channels).to(device)
-    print(net)
+    #print(net)
 
     restart_interval = 20
-    torch.manual_seed(12345)
+    
 
     net.apply(weights_init)
     criterion = nn.CrossEntropyLoss().to(device) # the one used in iDLG
-    #criterion = cross_entropy_for_onehot
 
     #  original gradients
     pred = net(gt_data)
@@ -91,9 +92,12 @@ for batch_size in batch_sizes:
     original_dy_dx = list((_.detach().clone() for _ in dy_dx))
 
     method = "DLG" # "DLG" or "iDLG"
-    # note: iDLG can not be used for more than 1 image
+    # note: iDLG can not be used for more than 1 image, so we use DLG for multiple images
 
-    for experiment in range(experiments_number):  # run multiple experiments for each batch size
+    losses_experiments = []
+
+
+    for experiment in range(experiments_number):  
 
         # dummy data and label
         dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)  # shape [n, 1, 28, 28]
@@ -108,17 +112,15 @@ for batch_size in batch_sizes:
             label_pred = torch.argmin(torch.sum(original_dy_dx[-2], dim=-1), dim=-1).detach().reshape((n,)).requires_grad_(False)
             print("Predicted label is:", label_pred.item())
 
-        losses_experiments = []
-
         history = {"initial": dummy_data.clone().detach().cpu(), "final": None}
         current_loss = 0
-        n_iter = 300
+        
         loss_array = np.zeros(n_iter)
         for iters in range(n_iter):
 
             if current_loss >= 5 and (iters % restart_interval == 0): # or ((loss_array[iters - 10] - current_loss) < 1e-16 and iters > 10 and iters % restart_interval == 0):
                 # re-initialize dummy data and labels
-                print("Restarting...")
+                #print("Restarting...")
                 dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
                 dummy_labels = torch.randn(gt_onehot_labels.size()).to(device).requires_grad_(True)
                 if method == 'DLG':
@@ -151,21 +153,69 @@ for batch_size in batch_sizes:
             current_loss = closure().item()
             loss_array[iters] = current_loss
 
-            print(iters, "%.10f" % current_loss)
+            #print(iters, "%.10f" % current_loss)
 
-            if iters == 299:  # save final reconstructed images
+            if iters == n_iter-1:  # save final reconstructed images
                 history["final"] = dummy_data.clone().detach().cpu()
             
         losses_experiments.append(current_loss)
-        print(f"Final loss for batch size {batch_size}: {current_loss:.6f}, experiment: {experiment}")
-    
-    final_losses.append(np.mean(losses_experiments))  # average final loss for this batch size
+        # pixel wise loss:
+        pixel_loss = torch.mean((dummy_data - gt_data) ** 2).item()
+      
 
-# Plotting the results
-plt.plot(batch_sizes, final_losses, marker='o')
-plt.title(f'Final Loss vs Batch Size, number of iterations = {n_iter}, number of experiments = {experiments_number}')
+        print(f"Final pixel loss for batch size {batch_size}: {pixel_loss:.5e}, experiment: {experiment}")
+    
+
+    print(f"Standard deviation of losses for batch size {batch_size}: {np.std(losses_experiments, ddof=1)}")
+   
+    
+    return [index_batch_size, np.mean(losses_experiments),  np.std(losses_experiments, ddof=1), np.min(losses_experiments), np.max(losses_experiments)]  
+
+result = Parallel(n_jobs=12)(delayed(run_experiment)(index_batch_size) for index_batch_size in range(number_batch_sizes))
+
+# order result by batch size
+result.sort(key=lambda x: x[0])  # sort by index_batch_size
+
+final_losses = np.array([res[1] for res in result])  
+standard_deviation_experiments = np.array([res[2] for res in result])
+min_losses = np.array([res[3] for res in result])
+max_losses = np.array([res[4] for res in result])
+ 
+err_lower = final_losses - min_losses
+err_upper = max_losses - final_losses
+asymmetric_error = np.array([err_lower, err_upper])
+
+# plotting the results
+
+batch_sizes = [2**i for i in range(number_batch_sizes)] 
+
+plt.figure(figsize=(10, 10))
+
+plt.plot(batch_sizes, final_losses, 'o-', label='Final Loss')
+#plt.errorbar(batch_sizes, final_losses, yerr=asymmetric_error, fmt ="none", label= 'Range of values from experiments', capsize=4)
+
+plt.legend() 
+plt.title(f'Different batch sizes comparison: iterations = {n_iter}, experiments = {experiments_number}, dataset: MNIST')
 plt.xlabel('Batch Size')
-plt.ylabel('Final Loss')
+plt.ylabel('Loss function value')
+plt.grid()
+plt.show()
+
+
+plt.figure(figsize=(10, 5))
+plt.plot(batch_sizes, final_losses, 'o-', label='Final Loss')
+#plt.errorbar(batch_sizes, final_losses, yerr=asymmetric_error, fmt ="none", label= 'Range of values from experiments', capsize=4)
+
+#set log scale base 2
+plt.xscale('log', base=2)
+# plt.errorbar(batch_sizes, final_losses, yerr=standard_deviation_experiments, fmt='o', color='blue', capsize=5)
+
+#plt.plot(batch_sizes, final_pixel_losses, 'o-', label='Final Pixel Loss')
+#plt.errorbar(batch_sizes,final_pixel_losses,yerr=standard_deviation_pixel_experiments,fmt='o',color='red',capsize=5)
+plt.legend() 
+plt.title(f'Different batch sizes comparison (log-log plot): iterations = {n_iter}, experiments = {experiments_number}, dataset: CIFAR100')
+plt.xlabel('Batch Size')
+plt.ylabel('Loss function value')
 plt.grid()
 plt.show()
 
