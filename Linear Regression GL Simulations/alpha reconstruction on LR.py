@@ -88,42 +88,48 @@ retrieved_data = retrieved_data.reshape(3, 32, 32)
 print("min:", retrieved_data.min())
 print("max:", retrieved_data.max())
 # plot original image and retrieved image 
-plt.subplot(2, 3, 1)
+plt.subplot(1, 3, 1)
 plt.axis('off')
 plt.title("Original")
 plt.imshow(tt(gt_data[0].cpu()))
 
-plt.subplot(2, 3, 2)
+plt.subplot(1, 3, 2)
 plt.axis('off')
 plt.title(r"$\alpha$-retrieved")
 plt.imshow(retrieved_data.transpose(1, 2, 0))
+error_a = np.mean((retrieved_data - gt_data[0].cpu().numpy())**2)
+plt.text(0.5, -0.1, f"error (MSE): {error_a:.4e}", transform=plt.gca().transAxes, ha='center')
 
-plt.subplot(2, 3, 3)
+
+plt.subplot(1, 3, 3)
 plt.axis('off')
 grad_w = grad_w.reshape(3, 32, 32)
 # normalize the gradient
 grad_w_norm = (grad_w - grad_w.min()) / (grad_w.max() - grad_w.min())
 plt.title("Normalized gradient")
 plt.imshow(grad_w_norm.transpose(1, 2, 0))
+error_g = np.mean((grad_w_norm - gt_data[0].cpu().numpy())**2)
+plt.text(0.5, -0.1, f"error (MSE): {error_g:.4e}", transform=plt.gca().transAxes, ha='center')
 
 
-plt.subplot(2, 3, 4)
-plt.axis('off')
-plt.title("Gradient non normalized")
-plt.imshow(grad_w.transpose(1, 2, 0))
+
+#plt.subplot(2, 3, 4)
+#plt.axis('off')
+#plt.title("Gradient non normalized")
+#plt.imshow(grad_w.transpose(1, 2, 0))
 
 
-plt.subplot(2, 3, 5)
-plt.axis('off')
-plt.title(r"100 x ($\alpha$-retrieved - original)")
-diff = 100*(retrieved_data - gt_data[0].cpu().numpy())
-plt.imshow(diff.transpose(1, 2, 0))
+#plt.subplot(2, 3, 5)
+#plt.axis('off')
+#plt.title(r"100 x ($\alpha$-retrieved - original)")
+#diff = 100*(retrieved_data - gt_data[0].cpu().numpy())
+#plt.imshow(diff.transpose(1, 2, 0))
 
-plt.subplot(2, 3, 6)
-plt.axis('off')
-plt.title("100 x (normalized grad - orig)")
-diff2 = 100*( grad_w_norm - gt_data[0].cpu().numpy())
-plt.imshow(diff2.transpose(1, 2, 0))
+#plt.subplot(2, 3, 6)
+#plt.axis('off')
+#plt.title("100 x (normalized grad - orig)")
+#diff2 = 100*( grad_w_norm - gt_data[0].cpu().numpy())
+#plt.imshow(diff2.transpose(1, 2, 0))
 
 
 plt.tight_layout()
